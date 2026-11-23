@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UMT captcha reader — offline preview</title>
+<style>
+  body{font:14px/1.5 "Segoe UI",Arial,sans-serif;margin:24px;background:#f8fafc;color:#111827}
+  h1{font-size:18px;margin:0 0 6px}
+  p.note{color:#4b5563;margin:0 0 18px;max-width:72ch}
+  .row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;margin-bottom:18px;padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:10px}
+  figure{margin:0;text-align:center}
+  figcaption{font-size:11px;color:#6b7280;margin-top:4px}
+  canvas{border:1px solid #d1d5db;border-radius:6px;image-rendering:pixelated;background:#fff;max-width:100%}
+  .read{font:600 20px/1.2 Consolas,monospace;letter-spacing:4px;padding-top:8px}
+  .read small{display:block;font:12px "Segoe UI",Arial,sans-serif;letter-spacing:0;color:#4b5563;margin-top:6px}
+  .ok{color:#047857}.bad{color:#b91c1c}.weak{background:#fef3c7}
+  input[type=file]{margin-bottom:16px}
+  #stand-in{display:none}
+</style>
+</head>
+<body>
+<h1>Captcha reader preview</h1>
+<p class="note">
+  Runs the userscript's own recogniser (loaded from <code>umt-login-helper.user.js</code>, nothing copied): each glyph is
+  one solid colour, so compact solid-colour blobs are kept and the curves, lines and specks dropped; every glyph is then
+  matched against the 32 allowed characters drawn in Arial at −35…35°. Highlighted characters scored above the "unsure"
+  threshold. Pick your own captcha images below. The bundled samples load when this page is served over HTTP
+  (e.g. <code>npx serve .</code>); opened as a <code>file://</code> page, Chrome refuses to read their pixels.
+</p>
+<input type="file" id="pick" accept="image/png,image/jpeg" multiple>
+<div id="out"></div>
+
+<!-- stand-in for the portal's login markup, so the userscript initialises off-site -->
+<div id="stand-in">
+  <form id="loginform"><input id="student_id"><input id="Password">
+    <div class="r"><div class="r2"><div class="col-md-6"><input id="SecurityCode"></div>
+    <div class="col-md-6"><img id="captchaImg" alt=""></div></div></div>
+    <button id="loginbtn" type="button">Sign in</button></form>
+</div>
+<script src="umt-login-helper.user.js"></script>
+<script>
+const DOUBT = 1.5;
+const LABELLED = ['KYNSZ', '774GN', '9L6FY', 'NQD8Z', 'Q2TF3', 'M8YG8', 'GA78A', 'HP3NE', 'AEKV6', 'LD2HM'];
+
+function figure(caption, node) {
+  const fig = document.createElement('figure');
+  const cap = document.createElement('figcaption');
+  cap.textContent = caption;
+  fig.append(node, cap);
+  return fig;
+}
+
+function show(img, label, truth) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  let r;
+  try { r = window.__umtlh.recognise(img); } catch (e) {
+    row.append(figure(label + ' — could not read pixels (' + e.name + ')', document.createElement('span')));
+    document.getElementById('out').append(row);
+    return;
+  }
+  const variants = window.__umtlh.analyse(img, 3);
+  const orig = variants.find(v => v.original), clean = variants.find(v => !v.original);
+  row.append(figure(label + ' — original (3×)', orig.canvas));
+  if (clean) row.append(figure('extracted glyphs', clean.canvas));
+
+  const read = document.createElement('div');
+  read.className = 'read';
+  r.chars.forEach((c, i) => {
+    const s = document.createElement('span');
+    s.textContent = c.ch;
+    s.title = `score ${c.score.toFixed(2)}, runner-up ${c.alt}`;
+    if (c.score > DOUBT) s.className = 'weak';
+    if (truth) s.classList.add(truth[i] === c.ch ? 'ok' : 'bad');
+    read.append(s);
+  });
+  const note = document.createElement('small');
+  note.textContent = truth ? (r.text === truth ? 'matches the label' : 'label: ' + truth) : r.chars.length + ' glyphs found';
+  read.append(note);
+  row.append(read);
+  document.getElementById('out').append(row);
+}
+
+document.getElementById('pick').addEventListener('change', e => {
+  for (const f of e.target.files) {
+    const img = new Image();
+    img.onload = () => show(img, f.name, /^[A-Z0-9]{5}\./.test(f.name) ? f.name.slice(0, 5) : '');
+    img.src = URL.createObjectURL(f);
+  }
+});
+
+for (const code of LABELLED) {
+  const img = new Image();
+  img.onload = () => show(img, code + '.png', code);
+  img.src = 'samples/labelled/' + code + '.png';
+}
+</script>
+</body>
+</html>

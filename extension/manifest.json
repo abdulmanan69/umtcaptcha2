@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "UMT Login Helper",
+  "version": "1.2.0",
+  "minimum_chrome_version": "111",
+  "description": "Fills the UMT Student Portal captcha automatically (read locally, no download), retries after a wrong code, and neutralises portal-guard. No visible panel.",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://online.umt.edu.pk/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "world": "MAIN",
+      "all_frames": false
+    }
+  ]
+}
